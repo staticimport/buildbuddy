@@ -6,5 +6,5 @@ WARNS='-Wall -Wextra -Werror'
 set -e
 mkdir -p bin
 rm -f bin/*
-gcc -std=gnu99 $OPTIMIZE $WARNS -Isrc src/main.c -o bin/buildbuddy
+gcc -std=gnu99 -D_GNU_SOURCE $OPTIMIZE $WARNS -ggdb3 -Isrc src/main.c -o bin/buildbuddy
 

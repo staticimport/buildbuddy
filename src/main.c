@@ -2,6 +2,11 @@
 #include "builder.h"
 #include "filesystem_monitor.h"
 
+bool BUILD_STARTED = false;
+
+void check_build_status(struct bb_builder*);
+void on_filesystem_event(void*, struct bb_filesystem_event*);
+
 int main(int argc, char** argv)
 {
     // args
@@ -18,14 +23,34 @@ int main(int argc, char** argv)
     }
     struct bb_builder builder; bb_builder_init(&builder, build_command);
     struct bb_filesystem_event_listener listener = {
-        .on_event = &bb_builder_on_filesystem_event,
+        .on_event = &on_filesystem_event,
         .arg0     = &builder
     };
     bb_filesystem_monitor_set_listener(&fs_monitor, listener);
 
     // go!
-    bb_filesystem_monitor_run(&fs_monitor);
+    while (true)
+    {
+        bb_filesystem_monitor_poll(&fs_monitor);
+        check_build_status(&builder);
+    }
 
     return 0;
+}
+
+void check_build_status(struct bb_builder* bdr)
+{
+    int status;
+    if (!BUILD_STARTED || !bb_builder_try_complete(bdr, &status)) { return; }
+    BB_INFO("build complete! (status=%d)", status);
+    BUILD_STARTED = false;
+}
+
+void on_filesystem_event(void* arg0, struct bb_filesystem_event* event)
+{
+    struct bb_builder* const bdr = arg0; (void)event;
+    bb_builder_kill(bdr);
+    bb_builder_start(bdr);
+    BUILD_STARTED = true;
 }
 
