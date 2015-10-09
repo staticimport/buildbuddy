@@ -76,11 +76,13 @@ bool bb_builder_try_complete(struct bb_builder* bdr, int* status)
 
 void bb_builder_kill(struct bb_builder* bdr)
 {
-    if (!bdr->build_pid) { return; }
-    kill(SIGINT, bdr->build_pid);
-    waitpid(bdr->build_pid, NULL, WNOHANG);
+    pid_t pid = bdr->build_pid;
+    if (!pid) { return; }
+    kill(pid, SIGINT);
+    kill(pid, SIGTERM);
+    waitpid(pid, NULL, 0);
     bdr->build_pid = 0;
-    BB_INFO("aborted build");
+    BB_INFO("aborted build (pid %u)", pid);
 }
 
 #endif
