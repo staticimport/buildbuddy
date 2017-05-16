@@ -1,6 +1,6 @@
 #!/bin/bash
 
-OPTIMIZE='-O2 -fno-strict-aliasing'
+OPTIMIZE='-O0 -fno-strict-aliasing'
 WARNS='-Wall -Wextra -Werror'
 
 set -e

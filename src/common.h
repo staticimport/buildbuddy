@@ -14,12 +14,16 @@
 #include <time.h>
 #include <unistd.h>
 
-#define BB_ASSERT(check) \
-        if (!(check)) { \
-            fprintf(stderr, "Assertion `" #check "` failed"); \
+#define BB_ASSERT(check, ...) \
+        do { \
+          if (!(check)) { \
+            fprintf(stderr, "Assertion `" #check "` failed. " __VA_ARGS__); \
             exit(1); \
-        }
+          } \
+        } while (false)
+
 #define BB_BZERO(ptr) memset(ptr, 0, sizeof(*(ptr)))
+#define BB_DIE(...) do { fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1); } while (false)
 
 #define BB_INFO(...) \
         do { \
@@ -36,9 +40,10 @@
 /**
  * Functionality
  **/
-bool bb_is_file_or_dir_hidden(char const* name);
-bool bb_is_source_file(char const* name);
-void bb_print_timestamp(void);
+bool   bb_is_file_or_dir_hidden(char const* name);
+bool   bb_is_source_file(char const* name);
+void   bb_print_timestamp(void);
+size_t bb_trim_string(char*);
 
 
 /**
@@ -67,6 +72,16 @@ void bb_print_timestamp(void)
     struct tm* tm_info = localtime(&timer);
     char buf[64]; strftime(buf, sizeof(buf), "%T", tm_info);
     printf("%s.%03u", buf, (unsigned)(tv.tv_usec / 1000));
+}
+
+size_t bb_trim_string(char* s)
+{
+  size_t head      = 0;         while (isspace(s[head]))                       { head += 1; }
+  size_t tail      = strlen(s); while ((tail > head) && (isspace(s[tail-1])))  { tail -= 1; }
+  size_t const len = (tail - head);
+  if (head != 0) { memmove(s, s + head, len); }
+  s[len] = '\0';
+  return len;
 }
 
 #endif

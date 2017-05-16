@@ -1,0 +1,9 @@
+ncurses someday, not sure what to see in it
+
+buddyfile:
+* tasks, e.g. cme-ft
+* each task has command, includes, excludes
+* global includes, excludes?
+* running buildbuddy without task should show available tasks
+* error highlighting, reformatting?
+

@@ -1,0 +1,5 @@
+
+bb.command  ./build.sh
+bb.include  src
+bb.exclude  src/main.c
+
