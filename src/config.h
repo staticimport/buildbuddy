@@ -22,7 +22,7 @@ struct bb_config
 /* Functionality */
 void bb_task_config_load(struct bb_config*, char const* filename);
 
-struct bb_task_config* 
+struct bb_task_config*
 bb_task_config_find(struct bb_config*, char const* task_name);
 
 /* Implementation */
@@ -47,7 +47,7 @@ struct bb_task_config* bb_task_config_find_or_create_task(struct bb_config* c, c
 
 void bb_task_config_fail(char const* line, char const* error)
 {
-  BB_DIE("Failed while parsing config '%s': %s", line, error); 
+  BB_DIE("Failed while parsing config '%s': %s", line, error);
 }
 
 void bb_task_config_load(struct bb_config* c, char const* filename)

@@ -3,3 +3,7 @@ bb.command  ./build.sh
 bb.include  src
 bb.exclude  src/main.c
 
+dummy.command  echo "building!"
+dummy.include  dummy
+dummy.exclude  dummy/b
+

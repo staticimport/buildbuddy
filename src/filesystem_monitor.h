@@ -63,11 +63,27 @@ void bb_filesystem_monitor_set_listener(struct bb_filesystem_monitor* fm, struct
     fm->listener = l;
 }
 
+void bb_filesystem_monitor_recurse(struct bb_filesystem_monitor* fm, char const* current_path,
+                                   void (*fcn)(struct bb_filesystem_monitor*, char const*))
+{
+    DIR* dir = opendir(current_path); if (!dir) { return; }
+    struct dirent* de;
+    char* const buffer = malloc(strlen(current_path) + 512);
+    while ( (de = readdir(dir)) )
+    {
+        if (de->d_type != DT_DIR || bb_is_file_or_dir_hidden(de->d_name)) { continue; }
+        sprintf(buffer, "%s/%s", current_path, de->d_name);
+        fcn(fm, buffer);
+    }
+    free(buffer);
+}
+
 void bb_filesystem_monitor_include(struct bb_filesystem_monitor* fm, char const* path)
 {
-    // register with inotify 
+    // register with inotify
     BB_INFO("including '%s'", path);
-    int const wd = inotify_add_watch(fm->inotify_fd, path, IN_CLOSE_WRITE);
+    int const wd = inotify_add_watch(fm->inotify_fd, path,
+          IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | IN_MOVE_SELF | IN_MOVED_TO | IN_MOVED_FROM);
 
     // save
     BB_ASSERT(wd >= 0);
@@ -76,26 +92,21 @@ void bb_filesystem_monitor_include(struct bb_filesystem_monitor* fm, char const*
       fm->num_watches = wd + 1;
       fm->watches     = realloc(fm->watches, fm->num_watches * sizeof(*fm->watches));
     }
-    fm->watches[wd] = path;
+    fm->watches[wd] = strdup(path);
 
     // recurse to subdirectories
-    DIR* dir = opendir(path); if (!dir) { return; }
-    struct dirent* de;
-    char* const buffer = malloc(strlen(path) + 512);
-    while ( (de = readdir(dir)) )
-    {
-        if (de->d_type != DT_DIR || bb_is_file_or_dir_hidden(de->d_name)) { continue; }
-        sprintf(buffer, "%s/%s", path, de->d_name);
-        bb_filesystem_monitor_include(fm, buffer);
-    }
-    free(buffer);
+    bb_filesystem_monitor_recurse(fm, path, &bb_filesystem_monitor_include);
 }
 
 void bb_filesystem_monitor_exclude(struct bb_filesystem_monitor* fm, char const* path)
 {
+  // save
   fm->excludes = realloc(fm->excludes, (fm->num_excludes + 1) * sizeof(*fm->excludes));
   fm->excludes[fm->num_excludes++] = strdup(path);
   BB_INFO("excluding '%s'", path);
+
+  // recurse to subdirectories
+  bb_filesystem_monitor_recurse(fm, path, &bb_filesystem_monitor_exclude);
 }
 
 bool bb_filesystem_monitor_is_excluded(struct bb_filesystem_monitor* fm, char const* name)
@@ -116,7 +127,7 @@ void bb_filesystem_monitor_poll(struct bb_filesystem_monitor* fm)
     if (!epoll_wait(fm->epoll_fd, &ev, 1, 50)) { return; }
 
     // inotify
-    char buf[2048]; char path[2048];
+    char buf[2048]; char pathed_name[2048];
     int result = read(fm->inotify_fd, buf, sizeof(buf));
     BB_ASSERT(result > 0);
     char* const bufend = buf + result;
@@ -125,11 +136,16 @@ void bb_filesystem_monitor_poll(struct bb_filesystem_monitor* fm)
     {
         struct inotify_event ev; memcpy(&ev, head, sizeof(ev));
         char* const name = head + sizeof(ev); name[ev.len] = '\0';
-        sprintf(path, "%s/%s", fm->watches[ev.wd], name);
+        char const* path = fm->watches[ev.wd];
+        sprintf(pathed_name, "%s/%s", path, name);
         if (ev.len && !bb_is_file_or_dir_hidden(name) && bb_is_source_file(name))
         {
-            BB_INFO("'%s' updated", path);
-            if (bb_filesystem_monitor_is_excluded(fm, path)) { BB_INFO("...found in excludes list, ignoring"); break; }
+            BB_INFO("'%s' updated", pathed_name);
+            if (bb_filesystem_monitor_is_excluded(fm, path))
+            {
+              BB_INFO("...found in excludes list, ignoring");
+              break;
+            }
             struct bb_filesystem_event fs_event = {};
             (*fm->listener.on_event)(fm->listener.arg0, &fs_event);
             break;
